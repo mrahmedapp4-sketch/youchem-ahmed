@@ -462,7 +462,7 @@ export function StudentDashboard() {
               const thumbnailUrl = getLessonThumbnailUrl(lesson);
 
               const cardInner = (
-                <div className="neon-card rounded-2xl overflow-hidden h-full flex flex-col transition-shadow hover:shadow-md">
+                <div className="neon-card rounded-3xl overflow-hidden h-full flex flex-col group/card hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-slate-100">
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -478,7 +478,7 @@ export function StudentDashboard() {
                       />
                     )}
                     {/* Lock / check badge */}
-                    <div className={`absolute top-3 right-3 p-1.5 rounded-lg shadow-sm ${isUnlocked ? 'bg-emerald-500' : 'bg-white border border-slate-200'}`}>
+                    <div className={`absolute top-3.5 right-3.5 p-2 rounded-xl backdrop-blur-md shadow-md ${isUnlocked ? 'bg-teal-500/90 text-white' : 'bg-white/80 dark:bg-slate-900/80 border border-slate-200/50 dark:border-white/10 text-slate-500'}` }>
                       {isUnlocked
                         ? <CheckCircle className="w-4 h-4 text-white" />
                         : <Lock className="w-4 h-4 text-slate-400" />}

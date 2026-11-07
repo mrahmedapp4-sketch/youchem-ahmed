@@ -334,7 +334,7 @@ export function GradeSelection() {
         </div>
       )}
 
-      <div className="neon-card p-7 sm:p-9 rounded-[1.5rem] max-w-lg w-full">
+      <div className="neon-card p-8 sm:p-10 rounded-3xl max-w-lg w-full relative z-10 shadow-2xl">
 
         {/* Lang toggle */}
         <div className="flex justify-end mb-2">
@@ -373,12 +373,12 @@ export function GradeSelection() {
               <GraduationCap className="w-10 h-10 text-indigo-600" />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-[1.7rem] font-bold text-slate-900 mb-2 leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
             {tr('welcomeTo', lang)}{' '}
-            <span className="neon-text">youchem platform</span>
+            <span className="bg-gradient-to-r from-sky-600 to-teal-500 bg-clip-text text-transparent">YouChem</span>
           </h1>
-          <p className="text-xs font-semibold text-slate-400 mb-1">{tr('byMrAhmed', lang)}</p>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs font-bold text-sky-600 dark:text-sky-400 mb-1">{tr('byMrAhmed', lang)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {needsProfile ? tr('completeProfile', lang) : tr('loginSubtitle', lang)}
           </p>
         </div>
