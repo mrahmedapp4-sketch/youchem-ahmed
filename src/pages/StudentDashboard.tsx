@@ -83,16 +83,8 @@ export function StudentDashboard() {
 
   const handleSectionChange = (nextSection: Section) => {
     setIsSidebarOpen(false);
-    if (nextSection === pendingSectionRef.current || (!pendingSectionRef.current && nextSection === section)) return;
-
-    pendingSectionRef.current = nextSection;
-    document.getElementById('student-dashboard-section')?.classList.add('dashboard-section-exit');
-    if (sectionTransitionTimerRef.current) clearTimeout(sectionTransitionTimerRef.current);
-    sectionTransitionTimerRef.current = setTimeout(() => {
-      setSection(nextSection);
-      pendingSectionRef.current = null;
-      sectionTransitionTimerRef.current = null;
-    }, 150);
+    if (nextSection === section) return;
+    setSection(nextSection);
   };
 
   const handleLessonNavigation = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
