@@ -286,6 +286,13 @@ export const jsonDb = {
     persist();
     return before !== (data[table] as any[]).length;
   },
+  getBackupData(): DBShape {
+    return JSON.parse(JSON.stringify(load()));
+  },
+  restoreBackupData(newData: Partial<DBShape>): void {
+    cache = { ...emptyData(), ...newData };
+    persist();
+  },
 };
 
 export const newId = (): string => {

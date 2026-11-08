@@ -2880,6 +2880,48 @@ app.get('/api/youchem/settings/api-key', authenticateTeacher, (_req, res) => {
   }
 });
 
+// ── Teacher: One-Click Database Backup (.json download) ──────────────────────
+app.get('/api/youchem/backup/download', authenticateTeacher, (_req, res) => {
+  try {
+    const backupData = jsonDb.getBackupData();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `youchem-backup-${dateStr}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(backupData, null, 2));
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to generate backup: ' + err.message });
+  }
+});
+
+// ── Teacher: Restore Database Backup from uploaded .json ────────────────────
+app.post('/api/youchem/backup/restore', authenticateTeacher, (req, res) => {
+  try {
+    const data = req.body;
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json({ error: 'ملف النسخة الاحتياطية غير صالح.' });
+    }
+    const requiredTables = ['users', 'lessons', 'codes'];
+    const hasRequired = requiredTables.some(t => Array.isArray(data[t]));
+    if (!hasRequired) {
+      return res.status(400).json({ error: 'محتوى الملف لا يطابق بنية بيانات المنصة.' });
+    }
+    jsonDb.restoreBackupData(data);
+    res.json({
+      success: true,
+      message: 'تم استعادة النسخة الاحتياطية بنجاح!',
+      stats: {
+        students: (data.users || []).length,
+        lessons: (data.lessons || []).length,
+        codes: (data.codes || []).length,
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'فشل في استعادة البيانات: ' + err.message });
+  }
+});
+
+
 // ── Public students API (protected by apiKey query-param / Bearer header) ──────
 app.get('/api/public/students', (req, res) => {
   try {
