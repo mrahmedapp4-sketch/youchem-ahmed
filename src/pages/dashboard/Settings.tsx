@@ -80,7 +80,7 @@ export function Settings() {
       });
       const data = await res.json();
       if (res.ok) {
-        setRestoreMsg({ type: 'ok', text: ${data.message} ( طالب،  حصة،  كود) });
+        setRestoreMsg({ type: 'ok', text: `${data.message} (${data.stats.students} طالب، ${data.stats.lessons} حصة، ${data.stats.codes} كود)` });
         setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
         loadStats();
@@ -513,14 +513,14 @@ export function Settings() {
                   disabled={restoringBackup}
                   className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-teal-600 hover:bg-teal-700 text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <RefreshCw className={w-3.5 h-3.5 } />
+                  <RefreshCw className={`w-3.5 h-3.5 ${restoringBackup ? 'animate-spin' : ''}`} />
                   <span>{restoringBackup ? 'جاري الاستعادة...' : 'تأكيد الاستعادة'}</span>
                 </button>
               )}
             </div>
 
             {restoreMsg && (
-              <div className={mt-4 p-3 rounded-xl text-xs font-semibold flex items-center gap-2  }>
+              <div className={`mt-4 p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${restoreMsg.type === 'ok' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 border border-emerald-200 dark:border-emerald-500/20' : 'bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-200 dark:border-red-500/20'}` }>
                 {restoreMsg.type === 'ok' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
                 <span>{restoreMsg.text}</span>
               </div>
