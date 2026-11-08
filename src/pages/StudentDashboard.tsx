@@ -385,10 +385,6 @@ export function StudentDashboard() {
             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-slate-500 hover:text-slate-700 dark:hover:text-white p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5">
               <Menu className="w-6 h-6" />
             </button>
-            <div className="glass-badge hidden sm:inline-flex">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>YouChem Learning Experience</span>
-            </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={toggleTheme} title={theme === 'dark' ? tr('dayMode', lang) : tr('nightMode', lang)} className="theme-toggle">
@@ -409,10 +405,6 @@ export function StudentDashboard() {
           <div className="relative z-10">
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">{tr('welcomeHeading', lang)}</h2>
             <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm sm:text-base leading-relaxed">{tr('welcomeSub', lang)}</p>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold text-xs shrink-0">
-            <Sparkles className="w-4 h-4" />
-            <span>منصة الكيمياء الأحدث</span>
           </div>
         </div>
 
