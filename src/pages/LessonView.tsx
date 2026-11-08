@@ -216,9 +216,9 @@ export function LessonView() {
     <div className="min-h-screen lesson-page-enter" dir="rtl">
 
       {/* ── Navbar ── */}
-      <header className="neon-panel border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-3">
-          <button onClick={() => startPageTransition(() => navigate('/student-dashboard'))} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+      <header className="neon-panel border-b border-slate-200/80 dark:border-white/10 sticky top-0 z-20 backdrop-blur-2xl">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+          <button onClick={() => startPageTransition(() => navigate('/student-dashboard'))} className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-sky-600 dark:hover:text-sky-400 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-all border border-slate-200/80 dark:border-white/10 shrink-0">
             <ArrowRight className="w-5 h-5" />
           </button>
           <div>
@@ -231,7 +231,7 @@ export function LessonView() {
       <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
 
         {/* ── Video ── */}
-        <div className="neon-card rounded-2xl overflow-hidden">
+        <div className="neon-card rounded-3xl overflow-hidden shadow-2xl">
           <div className="aspect-video bg-slate-100 relative">
             {isVideoUnlocked ? (
               lesson.platform === 'youtube'
