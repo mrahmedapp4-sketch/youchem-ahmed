@@ -53,7 +53,7 @@ export function BunnyLibraryModal({ isOpen, onClose, onSelectVideo }: BunnyLibra
         setError(data.error || 'تعذر تحميل مكتبة فيديوهات Bunny');
       }
     } catch (err: any) {
-      setError('خطأ في الاتصال بسيرفر Bunny: ' + err.message);
+      setError('خطأ 404 الاتصال بسيرفر Bunny: ' + err.message);
     } finally {
       setLoading(false);
     }

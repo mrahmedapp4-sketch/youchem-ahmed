@@ -6,7 +6,7 @@ export function Emails() {
         <p className="text-slate-500 text-sm mt-0.5">إيميلات الطلاب للتواصل معاهم</p>
       </div>
       <div className="neon-card p-10 rounded-2xl text-center text-slate-400 text-sm">
-        قريباً — واجهة الإيميلات
+        please buy a (.com) domain first
       </div>
     </div>
   );
