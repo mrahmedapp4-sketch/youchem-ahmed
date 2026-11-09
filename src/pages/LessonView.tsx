@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowRight, Lock, Key, CheckCircle, XCircle, RefreshCw, X } from 'lucide-react';
+import { ArrowRight, Lock, Key, CheckCircle, XCircle, RefreshCw, X, ShieldAlert } from 'lucide-react';
 import { BunnyVideo } from '../components/BunnyVideo';
+import { VideoWatermark } from '../components/VideoWatermark';
 import { QuizAnswerReview } from '../components/QuizAnswerReview';
 import { startPageTransition } from '../lib/viewTransitions';
 
@@ -13,6 +14,8 @@ export function LessonView() {
 
   const [lesson, setLesson] = useState<any>(null);
   const [access, setAccess] = useState<any>(null);
+  const [studentInfo, setStudentInfo] = useState<{ id?: string; name?: string; phone?: string } | null>(null);
+  const [devToolsOpen, setDevToolsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const quizFetchGeneration = useRef(0);
 
@@ -53,6 +56,53 @@ export function LessonView() {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
   }, [id]);
+
+  // ── Anti-DevTools & Anti-Screen Leak Protection ───────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Block F12
+      if (e.key === 'F12') {
+        e.preventDefault();
+        return false;
+      }
+      // Block Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (Inspect/Console)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c', 'I', 'J', 'C'].includes(e.key)) {
+        e.preventDefault();
+        return false;
+      }
+      // Block Ctrl+U (View Source)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        return false;
+      }
+      // Block Ctrl+S (Save)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    const checkDevTools = () => {
+      const threshold = 160;
+      const widthDiff = window.outerWidth - window.innerWidth > threshold;
+      const heightDiff = window.outerHeight - window.innerHeight > threshold;
+      if (widthDiff || heightDiff) {
+        setDevToolsOpen(true);
+      } else {
+        setDevToolsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', checkDevTools);
+    const interval = setInterval(checkDevTools, 2000);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', checkDevTools);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     fetchLessonData();
@@ -98,6 +148,9 @@ export function LessonView() {
       const res = await fetch('/api/student/lessons');
       if (res.ok) {
         const data = await res.json();
+        if (data.student) {
+          setStudentInfo(data.student);
+        }
         const foundLesson = data.lessons?.find((l: any) => l.id === id);
         if (!foundLesson) { navigate('/student-dashboard'); return; }
         setLesson(foundLesson);
@@ -231,8 +284,31 @@ export function LessonView() {
       <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
 
         {/* ── Video ── */}
-        <div className="neon-card rounded-3xl overflow-hidden shadow-2xl">
-          <div className="aspect-video bg-slate-100 relative">
+        <div
+          className="neon-card rounded-3xl overflow-hidden shadow-2xl relative select-none"
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div className="aspect-video bg-slate-900 relative overflow-hidden">
+            {/* Dynamic Floating Watermark for Anti-Piracy Protection */}
+            {isVideoUnlocked && (
+              <VideoWatermark
+                studentName={studentInfo?.name}
+                studentPhone={studentInfo?.phone}
+                studentId={studentInfo?.id}
+              />
+            )}
+
+            {/* DevTools Security Blocker */}
+            {devToolsOpen && (
+              <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white">
+                <ShieldAlert className="w-12 h-12 text-red-500 mb-3 animate-bounce" />
+                <h3 className="text-lg font-bold">تم إيقاف عرض المحتوى لأسباب أمنية</h3>
+                <p className="text-slate-400 text-sm mt-1 max-w-sm">
+                  يرجى إغلاق أدوات المطور (Developer Tools) وشاشات التسجيل لمتابعة مشاهدة الحصة.
+                </p>
+              </div>
+            )}
+
             {isVideoUnlocked ? (
               lesson.platform === 'youtube'
                 ? <iframe src={`https://www.youtube.com/embed/${extractYoutubeId(lesson.videoUrl)}`} className="absolute inset-0 w-full h-full" allowFullScreen />

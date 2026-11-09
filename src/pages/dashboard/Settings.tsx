@@ -40,7 +40,10 @@ export function Settings() {
     setDownloadingBackup(true);
     try {
       const res = await fetch('/api/youchem/backup/download');
-      if (!res.ok) throw new Error('فشل تحميل النسخة الاحتياطية');
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson.error || `خطأ ${res.status}: فشل تحميل النسخة الاحتياطية`);
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -48,10 +51,16 @@ export function Settings() {
       a.download = 'youchem-backup-' + new Date().toISOString().slice(0, 10) + '.json';
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }, 100);
     } catch (err: any) {
-      alert(err.message || 'حدث خطأ أثناء تحميل النسخة الاحتياطية');
+      try {
+        window.location.href = '/api/youchem/backup/download';
+      } catch {
+        alert(err.message || 'حدث خطأ أثناء تحميل النسخة الاحتياطية');
+      }
     } finally {
       setDownloadingBackup(false);
     }

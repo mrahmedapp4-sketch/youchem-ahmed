@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Alexandria:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+@source "../src";
+@source "../index.html";
 
 @theme {
   --font-sans: "Alexandria", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;

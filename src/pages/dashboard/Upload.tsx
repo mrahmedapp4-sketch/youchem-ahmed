@@ -11,13 +11,20 @@ import {
   Image as ImageIcon,
   Upload,
   Loader2,
+  UploadCloud,
+  Film,
 } from 'lucide-react';
 import { BunnyVideo } from '../../components/BunnyVideo';
+import { BunnyUploadModal } from '../../components/BunnyUploadModal';
+import { BunnyLibraryModal } from '../../components/BunnyLibraryModal';
 import { getLessonThumbnailUrl, getYouTubeThumbnailUrl } from '../../lib/videoThumbnail';
 
 export function UploadVideo() {
   const [lessons, setLessons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [showBunnyUploadModal, setShowBunnyUploadModal] = useState(false);
+  const [showBunnyLibraryModal, setShowBunnyLibraryModal] = useState(false);
 
   const [showLessonForm, setShowLessonForm] = useState(false);
   const [lessonTitle, setLessonTitle] = useState('');
@@ -258,6 +265,29 @@ export function UploadVideo() {
   const INPUT_CLS = 'neon-input w-full px-3 py-2 rounded-xl text-sm';
   const LABEL_CLS = 'block text-xs font-semibold mb-1 text-slate-600';
 
+  const handleBunnyVideoUploaded = (result: {
+    title: string;
+    videoUrl: string;
+    guid: string;
+    thumbnailUrl: string;
+    gradeLevel: string;
+  }) => {
+    setShowLessonForm(true);
+    setLessonTitle(result.title);
+    setLessonGrade(result.gradeLevel || '2nd_sec');
+    setLessonPlatform('bunny');
+    setLessonUrl(result.videoUrl);
+    setLessonThumbnailUrl(result.thumbnailUrl || '');
+  };
+
+  const handleSelectBunnyVideo = (video: any) => {
+    setShowLessonForm(true);
+    setLessonTitle(video.title || '');
+    setLessonPlatform('bunny');
+    setLessonUrl(video.embedUrl);
+    setLessonThumbnailUrl(video.thumbnailUrl || '');
+  };
+
   const previewAddThumbnail =
     lessonThumbnailUrl.trim() ||
     (lessonPlatform === 'youtube' ? getYouTubeThumbnailUrl(lessonPlatform, lessonUrl) : null);
@@ -274,13 +304,31 @@ export function UploadVideo() {
           <h1 className="text-xl font-bold text-slate-900">إدارة الحصص</h1>
           <p className="text-slate-500 text-sm mt-0.5">إضافة وإدارة فيديوهات الدروس والصور المصغرة</p>
         </div>
-        <button
-          onClick={() => setShowLessonForm(!showLessonForm)}
-          className="neon-btn px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          ضيف حصة جديدة
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowBunnyUploadModal(true)}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:opacity-95 shadow-md shadow-orange-500/20 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>رفع فيديو لـ Bunny</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBunnyLibraryModal(true)}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200/80 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            <Film className="w-4 h-4 text-orange-600" />
+            <span>مكتبة Bunny</span>
+          </button>
+          <button
+            onClick={() => setShowLessonForm(!showLessonForm)}
+            className="neon-btn px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            ضيف حصة جديدة
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
@@ -324,7 +372,30 @@ export function UploadVideo() {
                 </select>
               </div>
               <div>
-                <label className={LABEL_CLS}>الرابط أو الـ ID</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-600">الرابط أو الـ ID</label>
+                  {lessonPlatform === 'bunny' && (
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setShowBunnyUploadModal(true)}
+                        className="text-orange-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <UploadCloud className="w-3 h-3" />
+                        رفع جديد
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowBunnyLibraryModal(true)}
+                        className="text-orange-600 hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Film className="w-3 h-3" />
+                        المكتبة
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   required
@@ -332,7 +403,7 @@ export function UploadVideo() {
                   onChange={(e) => setLessonUrl(e.target.value)}
                   className={INPUT_CLS}
                   dir="ltr"
-                  placeholder="رابط أو معرف الفيديو"
+                  placeholder={lessonPlatform === 'bunny' ? "رابط التضمين أو معرّف Bunny (GUID)" : "رابط أو معرف الفيديو"}
                 />
               </div>
             </div>
@@ -861,6 +932,20 @@ export function UploadVideo() {
           </div>
         </div>
       )}
+
+      {/* Bunny Upload Modal */}
+      <BunnyUploadModal
+        isOpen={showBunnyUploadModal}
+        onClose={() => setShowBunnyUploadModal(false)}
+        onVideoUploaded={handleBunnyVideoUploaded}
+      />
+
+      {/* Bunny Library Modal */}
+      <BunnyLibraryModal
+        isOpen={showBunnyLibraryModal}
+        onClose={() => setShowBunnyLibraryModal(false)}
+        onSelectVideo={handleSelectBunnyVideo}
+      />
     </div>
   );
 }

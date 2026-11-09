@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
@@ -51,6 +52,21 @@ import {
 import firebaseConfig from './firebase-applet-config.json' assert { type: 'json' };
 
 const app = express();
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+// Global HTTP Security Headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Rate limiting state (in-memory, clean & lightweight)
+const failedTeacherLogins = new Map<string, { count: number; firstAttempt: number }>();
+const failedCodeAttempts = new Map<string, { count: number; firstAttempt: number }>();
+
 if (typeof (process as any).loadEnvFile === 'function') {
   try {
     (process as any).loadEnvFile();
@@ -427,12 +443,27 @@ const requireCompleteStudentProfile = (req: express.Request, res: express.Respon
 
 // --- TEACHER API ---
 app.post('/api/teacher/login', async (req, res) => {
+  const clientIp = String(req.ip || req.socket.remoteAddress || 'unknown');
+  const now = Date.now();
+  const attempt = failedTeacherLogins.get(clientIp);
+
+  if (attempt) {
+    if (now - attempt.firstAttempt < 15 * 60 * 1000) {
+      if (attempt.count >= 6) {
+        return res.status(429).json({ error: 'تم حظر محاولات الدخول مؤقتاً لتكرار المحاولات الخاطئة. يرجى الانتظار 15 دقيقة.' });
+      }
+    } else {
+      failedTeacherLogins.delete(clientIp);
+    }
+  }
+
   const { password } = req.body;
   // Use stored hash if teacher changed their password, otherwise fall back to default.
   const storedSettings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
   const hash = storedSettings?.teacherPasswordHash ?? (await teacherPasswordHashPromise);
   const isMatch = typeof password === 'string' && await bcrypt.compare(password, hash);
   if (isMatch) {
+    failedTeacherLogins.delete(clientIp);
     // Generate a server-side session token so logout actually invalidates
     // the cookie even if it was copied or stolen.
     const teacherSessionToken = randomBytes(32).toString('hex');
@@ -448,7 +479,13 @@ app.post('/api/teacher/login', async (req, res) => {
     }
     res.cookie('teacher_token', token, { ...COOKIE_OPTS, maxAge: TEACHER_SESSION_DURATION_MS }).json({ success: true });
   } else {
-    res.status(401).json({ error: 'Invalid password' });
+    const prev = failedTeacherLogins.get(clientIp);
+    if (!prev) {
+      failedTeacherLogins.set(clientIp, { count: 1, firstAttempt: Date.now() });
+    } else {
+      prev.count += 1;
+    }
+    res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
   }
 });
 
@@ -491,6 +528,164 @@ app.post('/api/teacher/logout', authenticateTeacher, (req, res) => {
     }
   } catch { /* ignore */ }
   res.clearCookie('teacher_token', COOKIE_OPTS).json({ success: true });
+});
+
+// ── Bunny Stream Video API ──────────────────────────────────────────────────
+const BUNNY_LIBRARY_ID = '712182';
+const BUNNY_API_KEY = '22e138bc-93ad-4bc7-af8774ef7219-29d6-491c';
+const BUNNY_CDN_HOSTNAME = 'vz-e7f026a9-10e.b-cdn.net';
+
+// 1. Create video record on Bunny
+app.post('/api/youchem/bunny/create-video', authenticateTeacher, async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'اسم الفيديو مطلوب' });
+    }
+    const response = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos`, {
+      method: 'POST',
+      headers: {
+        'AccessKey': BUNNY_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ title: title.trim() }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'فشل في إنشاء الفيديو على Bunny' });
+    }
+    res.json({
+      success: true,
+      guid: data.guid,
+      videoLibraryId: BUNNY_LIBRARY_ID,
+      title: data.title,
+      embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${data.guid}`,
+      directUploadUrl: `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${data.guid}`,
+      accessKey: BUNNY_API_KEY,
+      thumbnailUrl: `https://${BUNNY_CDN_HOSTNAME}/${data.guid}/thumbnail.jpg`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'خطأ في الاتصال مع سيرفر Bunny: ' + err.message });
+  }
+});
+
+// 2. Fetch existing videos from Bunny library
+app.get('/api/youchem/bunny/videos', authenticateTeacher, async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const itemsPerPage = Math.min(Number(req.query.itemsPerPage) || 100, 100);
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    let url = `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=date`;
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
+    }
+    const response = await fetch(url, {
+      headers: {
+        'AccessKey': BUNNY_API_KEY,
+        'Accept': 'application/json',
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'فشل في جلب الفيديوهات من Bunny' });
+    }
+    const items = (data.items || []).map((item: any) => ({
+      guid: item.guid,
+      title: item.title,
+      length: item.length,
+      views: item.views,
+      status: item.status,
+      encodeProgress: item.encodeProgress,
+      dateUploaded: item.dateUploaded,
+      storageSize: item.storageSize,
+      thumbnailUrl: item.thumbnailUrl || `https://${BUNNY_CDN_HOSTNAME}/${item.guid}/thumbnail.jpg`,
+      embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${item.guid}`,
+    }));
+    res.json({
+      totalItems: data.totalItems || items.length,
+      currentPage: data.currentPage || page,
+      itemsPerPage: data.itemsPerPage || itemsPerPage,
+      items,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'خطأ في جلب الفيديوهات: ' + err.message });
+  }
+});
+
+// 3. Get single video status from Bunny
+app.get('/api/youchem/bunny/video/:guid', authenticateTeacher, async (req, res) => {
+  try {
+    const { guid } = req.params;
+    const response = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${guid}`, {
+      headers: {
+        'AccessKey': BUNNY_API_KEY,
+        'Accept': 'application/json',
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'الفيديو غير موجود' });
+    }
+    res.json({
+      guid: data.guid,
+      title: data.title,
+      status: data.status,
+      encodeProgress: data.encodeProgress,
+      length: data.length,
+      embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${data.guid}`,
+      thumbnailUrl: data.thumbnailUrl || `https://${BUNNY_CDN_HOSTNAME}/${data.guid}/thumbnail.jpg`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. Delete video from Bunny
+app.delete('/api/youchem/bunny/videos/:guid', authenticateTeacher, async (req, res) => {
+  try {
+    const { guid } = req.params;
+    const response = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${guid}`, {
+      method: 'DELETE',
+      headers: {
+        'AccessKey': BUNNY_API_KEY,
+        'Accept': 'application/json',
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.message || 'فشل في حذف الفيديو من Bunny' });
+    }
+    res.json({ success: true, message: 'تم حذف الفيديو من Bunny بنجاح' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Proxy upload fallback for large video files
+app.put('/api/youchem/bunny/upload-proxy/:guid', authenticateTeacher, (req, res) => {
+  const { guid } = req.params;
+  const targetUrl = `https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${guid}`;
+  
+  const proxyReq = https.request(targetUrl, {
+    method: 'PUT',
+    headers: {
+      'AccessKey': BUNNY_API_KEY,
+      'Content-Type': req.headers['content-type'] || 'application/octet-stream',
+      'Content-Length': req.headers['content-length'] || '',
+    },
+  }, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (err) => {
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Proxy upload failed: ' + err.message });
+    }
+  });
+
+  req.pipe(proxyReq);
 });
 
 // Lessons API
@@ -1419,7 +1614,17 @@ app.get('/api/student/lessons', authenticateStudent, requireCompleteStudentProfi
       return { ...access, ...(quizResults ? { quizResults } : {}) };
     });
 
-    res.json({ lessons: availableLessons, accesses });
+    res.json({
+      lessons: availableLessons,
+      accesses,
+      student: {
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        school: user.school,
+        gradeLevel: user.gradeLevel,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1442,17 +1647,37 @@ app.get('/api/student/grades', authenticateStudent, requireCompleteStudentProfil
 
 app.post('/api/student/validate-code', authenticateStudent, requireCompleteStudentProfile, async (req, res) => {
   try {
-    const { lessonId, code } = req.body;
     const studentId = (req as any).studentId;
+    const rateKey = `${studentId}_${req.ip || 'ip'}`;
+    const now = Date.now();
+    const attempt = failedCodeAttempts.get(rateKey);
 
+    if (attempt) {
+      if (now - attempt.firstAttempt < 10 * 60 * 1000) {
+        if (attempt.count >= 8) {
+          return res.status(429).json({ error: 'تم تجميد إدخال الأكواد مؤقتاً لتكرار المحاولات الخاطئة. برجاء الانتظار 10 دقائق.' });
+        }
+      } else {
+        failedCodeAttempts.delete(rateKey);
+      }
+    }
+
+    const { lessonId, code } = req.body;
     const key = jsonDb.find('codes', (c: DbCode) => c.codeString === code);
-    if (!key) return res.status(400).json({ error: 'الكود غير صحيح' });
+    if (!key) {
+      const prev = failedCodeAttempts.get(rateKey);
+      if (!prev) failedCodeAttempts.set(rateKey, { count: 1, firstAttempt: now });
+      else prev.count += 1;
+      return res.status(400).json({ error: 'الكود غير صحيح' });
+    }
     if (key.kind === 'promo' || key.kind === 'multi') return res.status(400).json({ error: 'استخدم هذا الكود من خانة Promo Code' });
     if (key.isUsed) return res.status(400).json({ error: 'الكود مستخدم من قبل' });
     // Enforce lesson-specific codes: a code tied to a lesson can ONLY unlock that lesson.
     if (key.lessonId && key.lessonId !== lessonId) {
       return res.status(400).json({ error: 'هذا الكود خاص بحصة مختلفة' });
     }
+
+    failedCodeAttempts.delete(rateKey);
 
     jsonDb.update('codes', (c: DbCode) => c.id === key.id, { isUsed: true, usedBy: studentId });
 
@@ -2881,14 +3106,30 @@ app.get('/api/youchem/settings/api-key', authenticateTeacher, (_req, res) => {
 });
 
 // ── Teacher: One-Click Database Backup (.json download) ──────────────────────
-app.get('/api/youchem/backup/download', authenticateTeacher, (_req, res) => {
+app.get('/api/youchem/backup/download', (req, res, next) => {
+  const token = req.cookies.teacher_token || req.query.token;
+  if (!token) return res.status(401).json({ error: 'غير مصرح: يرجى تسجيل الدخول كمعلم' });
+  try {
+    const decoded = jwt.verify(token as string, JWT_SECRET) as any;
+    if (decoded.role !== 'teacher') throw new Error('bad role');
+    const settings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
+    if (!settings?.activeTeacherToken || decoded.teacherSessionToken !== settings.activeTeacherToken) {
+      return res.status(401).json({ error: 'انتهت الجلسة، سجل دخول مرة أخرى' });
+    }
+    next();
+  } catch {
+    return res.status(401).json({ error: 'رمز الجلسة غير صالح' });
+  }
+}, (_req, res) => {
   try {
     const backupData = jsonDb.getBackupData();
     const dateStr = new Date().toISOString().slice(0, 10);
     const filename = `youchem-backup-${dateStr}.json`;
-    res.setHeader('Content-Type', 'application/json');
+    const payload = JSON.stringify(backupData, null, 2);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(JSON.stringify(backupData, null, 2));
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.send(payload);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to generate backup: ' + err.message });
   }

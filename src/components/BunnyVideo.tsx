@@ -47,9 +47,20 @@ function loadPlayerScript(): Promise<void> {
 }
 
 function toEmbedUrl(videoUrl: string): string {
-  const embedUrl = videoUrl.replace('player.mediadelivery.net/play/', 'iframe.mediadelivery.net/embed/');
-  const separator = embedUrl.includes('?') ? '&' : '?';
-  return `${embedUrl}${separator}playerjs=1`;
+  let url = (videoUrl || '').trim();
+  if (!url) return '';
+  // Handle raw GUID: e.g. "ab93695f-a9d3-4164-94f5-055fcb03126c"
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(url)) {
+    url = `https://iframe.mediadelivery.net/embed/712182/${url}`;
+  } else if (/^712182\/[0-9a-f-]{36}$/i.test(url)) {
+    url = `https://iframe.mediadelivery.net/embed/${url}`;
+  } else {
+    url = url
+      .replace('player.mediadelivery.net/play/', 'iframe.mediadelivery.net/embed/')
+      .replace('video.bunnycdn.com/play/', 'iframe.mediadelivery.net/embed/');
+  }
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}playerjs=1`;
 }
 
 export function BunnyVideo({ videoUrl, title, className = '', skipFromSeconds, skipToSeconds }: {
