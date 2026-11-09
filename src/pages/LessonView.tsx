@@ -383,10 +383,6 @@ export function LessonView() {
                 ملاحظه زرار ال fullscreen الاصلي مش شغال لاسباب امنيه
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                لحماية محتوى الحصة وبقاء العلامة المائية باسم الطالب، تم استبداله بزر ملء الشاشة الآمن في زاوية الفيديو.
-              </p>
-
               {isVideoUnlocked && (
                 <button
                   type="button"
