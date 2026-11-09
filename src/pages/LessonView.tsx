@@ -10,6 +10,7 @@ import {
   X,
   Maximize,
   Minimize,
+  ShieldAlert,
 } from 'lucide-react';
 import { BunnyVideo } from '../components/BunnyVideo';
 import { VideoWatermark } from '../components/VideoWatermark';
@@ -341,7 +342,7 @@ export function LessonView() {
 
       {/* ── Navbar ── */}
       <header className="neon-panel border-b border-slate-200/80 dark:border-white/10 sticky top-0 z-20 backdrop-blur-2xl">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
           <button
             onClick={() => startPageTransition(() => navigate('/student-dashboard'))}
             className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-sky-600 dark:hover:text-sky-400 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-all border border-slate-200/80 dark:border-white/10 shrink-0"
@@ -356,15 +357,57 @@ export function LessonView() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-5 sm:space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-6">
 
-        {/* ── Video Player Container ── */}
-        <div
-          ref={videoContainerRef}
-          className="lesson-video-wrapper rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative select-none bg-black border border-slate-800 transition-all"
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center">
+        {/* ── Video Player & Security Notice Layout ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 sm:gap-6 items-start">
+
+          {/* Right Side Card (In RTL: Start side = Right, matches the red rectangle) */}
+          <div className="order-2 lg:order-1 space-y-4">
+            <div className="neon-card p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-950/20 shadow-xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-sm">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30 inline-block">
+                    تنبيه أمني هام
+                  </span>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm mt-1">
+                    تكبير الشاشة (Fullscreen)
+                  </h3>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-950 dark:text-amber-100 text-xs sm:text-sm font-bold leading-relaxed">
+                ملاحظه زرار ال fullscreen الاصلي مش شغال لاسباب امنيه
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                لحماية محتوى الحصة وبقاء العلامة المائية باسم الطالب، تم استبداله بزر ملء الشاشة الآمن في زاوية الفيديو.
+              </p>
+
+              {isVideoUnlocked && (
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="neon-btn w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                >
+                  <Maximize className="w-4 h-4" />
+                  <span>{isFullscreen ? 'الخروج من ملء الشاشة' : 'تكبير الشاشة الآن (F)'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Video Player (In RTL: End side = Left) */}
+          <div className="order-1 lg:order-2">
+            <div
+              ref={videoContainerRef}
+              className="lesson-video-wrapper rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative select-none bg-black border border-slate-800 transition-all"
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <div className="aspect-video bg-black relative overflow-hidden flex items-center justify-center">
 
             {/* Dynamic Floating Watermark - Persists in Fullscreen */}
             {isVideoUnlocked && (
@@ -448,6 +491,8 @@ export function LessonView() {
               </button>
             )}
 
+              </div>
+            </div>
           </div>
         </div>
 
