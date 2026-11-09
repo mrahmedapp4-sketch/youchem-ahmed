@@ -122,7 +122,6 @@ export function BunnyVideo({ videoUrl, title, className = '', skipFromSeconds, s
       ref={iframeRef}
       src={toEmbedUrl(videoUrl)}
       className={className}
-      allowFullScreen
       allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;"
       title={title}
     />
