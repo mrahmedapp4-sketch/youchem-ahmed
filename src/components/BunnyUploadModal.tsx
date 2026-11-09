@@ -266,11 +266,8 @@ export function BunnyUploadModal({ isOpen, onClose, onVideoUploaded }: BunnyUplo
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
                 رفع فيديو جديد إلى Bunny.net
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold border border-orange-200">
-                  سريع ومحمي
-                </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 الرفع يتم مباشرة إلى مكتبة فيديوهات مستر أحمد المشفرة
@@ -412,7 +409,6 @@ export function BunnyUploadModal({ isOpen, onClose, onVideoUploaded }: BunnyUplo
                   disabled={uploading}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="مثال: الباب الثالث - الدرس الثاني (الاتزان الكيميائي)"
                   className="neon-input w-full px-3.5 py-2.5 rounded-xl text-sm disabled:opacity-60"
                 />
               </div>
