@@ -48,13 +48,13 @@ export function VideoWatermark({ studentName, studentPhone }: VideoWatermarkProp
       }}
       aria-hidden="true"
     >
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/80 border border-white/20 text-white/90 text-[11px] sm:text-xs font-mono font-semibold shadow-2xl tracking-wide">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/30 border border-white/10 text-white/45 text-[11px] sm:text-xs font-mono font-medium shadow-sm tracking-wide">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/50 shrink-0" />
         <span className="truncate max-w-[220px] sm:max-w-xs">
           {displayName}
           {displayPhone}
         </span>
-        <span className="text-[10px] text-sky-300 font-bold hidden sm:inline">| YouChem</span>
+        <span className="text-[10px] text-white/30 font-medium hidden sm:inline">| YouChem</span>
       </div>
     </div>
   );
