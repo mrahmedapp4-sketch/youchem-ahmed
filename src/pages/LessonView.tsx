@@ -46,12 +46,10 @@ export function LessonView() {
 
   // When true, student dismissed the quiz with X — video stays accessible (unless locked)
   const [quizDismissed, setQuizDismissed] = useState(false);
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
   const handleOpenQuiz = () => {
-    setQuizDismissed(false);
-    setTimeout(() => {
-      document.getElementById('quiz-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+    setIsExamModalOpen(true);
   };
 
   /* ── Keyboard navigation for Quiz ── */
@@ -299,6 +297,7 @@ export function LessonView() {
     setQuizResult(null);
     setAnswers([]);
     setQuizDismissed(false);
+    setIsExamModalOpen(true);
     fetchQuiz();
   };
 
@@ -308,7 +307,7 @@ export function LessonView() {
 
   /* ── Quiz keyboard navigation ── */
   useEffect(() => {
-    if (quizQuestions.length === 0 || quizResult || quizDismissed) return;
+    if (!isExamModalOpen || quizQuestions.length === 0 || quizResult) return;
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -328,7 +327,7 @@ export function LessonView() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [quizResult, quizQuestions.length, focusedQIdx, quizDismissed]);
+  }, [isExamModalOpen, quizResult, quizQuestions.length, focusedQIdx]);
 
   if (loading || !lesson) return (
       <div className="min-h-screen flex items-center justify-center text-slate-400 lesson-page-enter">بيتحمل...</div>
@@ -382,19 +381,16 @@ export function LessonView() {
                   <FileQuestion className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60 inline-block">
-                      تقييم الحصة
-                    </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base">
+                      امتحان الدرس
+                    </h3>
                     {quizQuestions.length > 0 && !quizResult && (
-                      <span className="text-[11px] font-semibold text-slate-400">
+                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/40">
                         {quizQuestions.length} أسئلة
                       </span>
                     )}
                   </div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base mt-0.5">
-                    امتحان الدرس
-                  </h3>
                 </div>
               </div>
 
@@ -622,155 +618,163 @@ export function LessonView() {
           </div>
         )}
 
-        {/* ── Quiz Section ── */}
-        {showQuizSection && (
-          <div id="quiz-section" className="neon-card p-4 sm:p-6 md:p-8 rounded-2xl scroll-mt-20">
-            <div className="mb-5 pb-4 sm:mb-6 sm:pb-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">امتحان الدرس</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-                  {isLessonLocked
-                    ? 'الحصة مقفولة — اعمل إعادة الامتحان وجيب ٥/١٠ أو أكتر علشان تفتحها.'
-                    : 'خد الامتحان علشان تثبت إنك فاهم الدرس.'}
-                </p>
-              </div>
-              {!isLessonLocked && (
+        {/* ── Exam Modal (Distraction-Free Dialog) ── */}
+        {isExamModalOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+            onClick={() => setIsExamModalOpen(false)}
+          >
+            <div
+              className="neon-card w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-8 space-y-6 shadow-2xl relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 my-auto"
+              onClick={(e) => e.stopPropagation()}
+              dir="rtl"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md -mt-2 pt-2 z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50 shadow-sm">
+                    <FileQuestion className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      امتحان: {lesson.title}
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {quizResult
+                        ? 'مراجعة النتيجة وتصحيح الإجابات'
+                        : `${quizQuestions.length} سؤال • أجب عن جميع الأسئلة ثم اضغط تسليم`}
+                    </p>
+                  </div>
+                </div>
                 <button
-                  onClick={handleDismissQuiz}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors shrink-0"
-                  title="تخطي الامتحان (الحصة تفضل مفتوحة)"
+                  type="button"
+                  onClick={() => setIsExamModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors shrink-0"
+                  title="إغلاق الامتحان"
                 >
                   <X className="w-5 h-5" />
                 </button>
-              )}
-            </div>
+              </div>
 
-            {quizResult ? (
-              <div className="space-y-6">
-                <div className={`p-6 rounded-2xl border text-center ${quizResult.passed ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800'}`}>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">درجتك في الامتحان</p>
-                  <p className={`text-5xl font-extrabold ${quizResult.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                    {quizResult.score} / {quizResult.total}
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-400 mt-1">({Math.round((quizResult.score / quizResult.total) * 100)}%)</p>
-                  <p className={`mt-3 font-bold ${quizResult.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>
-                    {quizResult.passed ? 'مبروك! عدّيت الامتحان.' : 'لم تجتز الامتحان — الحصة تظل مفتوحة، وتقدر تعيد الامتحان.'}
-                  </p>
+              {/* Modal Body */}
+              {quizResult ? (
+                <div className="space-y-6">
+                  <div className={`p-6 rounded-2xl border text-center ${
+                    quizResult.passed
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                  }`}>
+                    <p className="text-slate-600 dark:text-slate-400 text-sm mb-1">درجتك في الامتحان</p>
+                    <p className={`text-5xl font-extrabold ${quizResult.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      {quizResult.score} / {quizResult.total}
+                    </p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">({Math.round((quizResult.score / quizResult.total) * 100)}%)</p>
+                    <p className={`mt-3 font-bold ${quizResult.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>
+                      {quizResult.passed ? 'مبروك! عدّيت الامتحان بنجاح.' : 'لم تجتز الامتحان — الحصة تظل مفتوحة، وتقدر تعيد الامتحان.'}
+                    </p>
 
-                  {!quizResult.passed && (
-                    <div className="mt-4 space-y-3">
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3">
-                        راجع التصحيح أو اعمل إعادة الامتحان — الحصة تظل مفتوحة
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex flex-wrap justify-center gap-3">
-                    <button onClick={handleRetakeQuiz} className="neon-btn px-6 py-3 rounded-xl font-bold flex items-center gap-2">
-                      <RefreshCw className="w-4 h-4" />
-                      إعادة الامتحان
-                    </button>
-                    {!isLessonLocked && (
-                      <button onClick={handleDismissQuiz} className="px-6 py-3 rounded-xl font-bold bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 transition-colors">
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                      <button
+                        onClick={handleRetakeQuiz}
+                        className="neon-btn px-6 py-2.5 rounded-xl font-bold flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        إعادة الامتحان
+                      </button>
+                      <button
+                        onClick={() => setIsExamModalOpen(false)}
+                        className="px-6 py-2.5 rounded-xl font-bold bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 transition-colors"
+                      >
                         إغلاق ومتابعة الحصة
                       </button>
-                    )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">مراجعة الإجابات والتصحيح</h3>
+                    {quizResult.results?.map((r: any, idx: number) => (
+                      <div key={idx} className={`p-4 rounded-xl border-2 space-y-3 ${r.isCorrect ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800'}`}>
+                        <div className="flex items-start gap-2">
+                          {r.isCorrect ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />}
+                          <p className="text-slate-800 dark:text-slate-200 font-semibold text-sm">{r.question}</p>
+                        </div>
+                        {r.image && (
+                          <div className="w-full max-w-md mx-auto aspect-video bg-white dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10">
+                            <img src={r.image} alt={`صورة السؤال ${idx + 1}`} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                        <QuizAnswerReview
+                          options={r.options}
+                          studentAnswer={r.studentAnswer}
+                          correctAnswer={r.correctAnswer}
+                          studentLabel="إجابة الطالب"
+                          correctLabel="الإجابة الصحيحة"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/10">
-                  <h3 className="font-bold text-slate-900 dark:text-white">مراجعة الإجابات والتصحيح</h3>
-                  {quizResult.results?.map((r: any, idx: number) => (
-                    <div key={idx} className={`p-4 rounded-xl border-2 space-y-3 ${r.isCorrect ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800'}`}>
-                      <div className="flex items-start gap-2">
-                        {r.isCorrect ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />}
-                        <p className="text-slate-800 dark:text-slate-200 font-semibold text-sm">{r.question}</p>
-                      </div>
-                      {r.image && (
-                        <div className="w-full max-w-md mx-auto aspect-video bg-white dark:bg-slate-900 rounded-lg overflow-hidden border border-slate-200 dark:border-white/10">
-                          <img src={r.image} alt={`صورة السؤال ${idx + 1}`} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <QuizAnswerReview
-                        options={r.options}
-                        studentAnswer={r.studentAnswer}
-                        correctAnswer={r.correctAnswer}
-                        studentLabel="إجابة الطالب"
-                        correctLabel="الإجابة الصحيحة"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : quizLoadState === 'loading' || quizLoadState === 'idle' ? (
-              <div className="text-center p-8 text-slate-400">بيتحمل الامتحان...</div>
-            ) : quizLoadState === 'error' ? (
-              <div className="text-center p-8 space-y-4">
-                <p className="text-red-600 text-sm font-semibold">{quizLoadError}</p>
-                <button onClick={() => void fetchQuiz()} className="neon-btn px-5 py-2.5 rounded-xl font-bold">
-                  حاول تحميل الامتحان تاني
-                </button>
-              </div>
-            ) : quizLoadState === 'missing' ? (
-              <div className="text-center p-8 text-slate-400">مفيش امتحان للدرس ده لسه.</div>
-            ) : (
-              <>
-                <div className="space-y-6">
-                  {quizQuestions.map((q, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setFocusedQIdx(idx)}
-                      className={`p-5 bg-slate-50 dark:bg-white/5 rounded-xl border-2 space-y-4 cursor-default transition-all ${focusedQIdx === idx ? 'border-indigo-400' : 'border-slate-200 dark:border-white/10'}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
-                        <p className="text-slate-800 dark:text-slate-200 font-semibold">{q.question}</p>
-                      </div>
-                      {q.image && (
-                        <div className="w-full max-w-xl mx-auto aspect-video bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
-                          <img src={q.image} alt={`صورة السؤال ${idx + 1}`} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <div className={q.options?.some(Boolean) ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : 'grid grid-cols-4 gap-2'}>
-                        {ANSWER_LETTERS.map((letter) => (
-                          <button
-                            key={letter} type="button"
-                            onClick={() => { const a = [...answers]; a[idx] = letter; setAnswers(a); }}
-                            className={`py-3 px-3 rounded-xl border-2 font-bold text-base transition-all min-h-[52px] active:scale-95 ${
-                              answers[idx] === letter
-                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-indigo-300 active:bg-indigo-50'
-                            } ${q.options?.some(Boolean) ? 'flex items-center gap-3 text-right' : ''}`}
-                          >
-                            <span className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">{letter}</span>
-                            {q.options?.[ANSWER_LETTERS.indexOf(letter)] && <span className="text-sm font-medium leading-relaxed">{q.options[ANSWER_LETTERS.indexOf(letter)]}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10 flex gap-3">
-                  <button onClick={handleSubmitQuiz} disabled={submittingQuiz} className="neon-btn flex-1 py-4 rounded-xl font-bold text-base disabled:opacity-50">
-                    {submittingQuiz ? 'بيتبعت...' : 'سلّم الامتحان'}
+              ) : quizLoadState === 'loading' || quizLoadState === 'idle' ? (
+                <div className="text-center p-8 text-slate-400">بيتحمل الامتحان...</div>
+              ) : quizLoadState === 'error' ? (
+                <div className="text-center p-8 space-y-4">
+                  <p className="text-red-600 text-sm font-semibold">{quizLoadError}</p>
+                  <button onClick={() => void fetchQuiz()} className="neon-btn px-5 py-2.5 rounded-xl font-bold">
+                    حاول تحميل الامتحان تاني
                   </button>
                 </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── Quiz dismissed notice ── */}
-        {access && quizDismissed && !isLessonLocked && !access.quizPassed && !access.quizExempt && quizLoadState !== 'missing' && (
-          <div className="neon-card p-4 rounded-2xl flex items-center justify-between gap-4">
-            <p className="text-sm text-slate-500 dark:text-slate-400">تخطيت الامتحان — الحصة مفتوحة. ممكن ترجعله في أي وقت.</p>
-            <button
-              onClick={() => setQuizDismissed(false)}
-              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 flex items-center gap-1"
-            >
-              <RefreshCw className="w-4 h-4" />
-              خد الامتحان
-            </button>
+              ) : quizLoadState === 'missing' ? (
+                <div className="text-center p-8 text-slate-400">مفيش امتحان للدرس ده لسه.</div>
+              ) : (
+                <>
+                  <div className="space-y-6">
+                    {quizQuestions.map((q, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setFocusedQIdx(idx)}
+                        className={`p-5 bg-slate-50 dark:bg-white/5 rounded-xl border-2 space-y-4 cursor-default transition-all ${focusedQIdx === idx ? 'border-indigo-400' : 'border-slate-200 dark:border-white/10'}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
+                          <p className="text-slate-800 dark:text-slate-200 font-semibold">{q.question}</p>
+                        </div>
+                        {q.image && (
+                          <div className="w-full max-w-xl mx-auto aspect-video bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
+                            <img src={q.image} alt={`صورة السؤال ${idx + 1}`} className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                        <div className={q.options?.some(Boolean) ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : 'grid grid-cols-4 gap-2'}>
+                          {ANSWER_LETTERS.map((letter) => (
+                            <button
+                              key={letter}
+                              type="button"
+                              onClick={() => { const a = [...answers]; a[idx] = letter; setAnswers(a); }}
+                              className={`py-3 px-3 rounded-xl border-2 font-bold text-base transition-all min-h-[52px] active:scale-95 ${
+                                answers[idx] === letter
+                                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-indigo-300 active:bg-indigo-50'
+                              } ${q.options?.some(Boolean) ? 'flex items-center gap-3 text-right' : ''}`}
+                            >
+                              <span className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">{letter}</span>
+                              {q.options?.[ANSWER_LETTERS.indexOf(letter)] && <span className="text-sm font-medium leading-relaxed">{q.options[ANSWER_LETTERS.indexOf(letter)]}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10 flex gap-3">
+                    <button
+                      onClick={handleSubmitQuiz}
+                      disabled={submittingQuiz}
+                      className="neon-btn flex-1 py-4 rounded-xl font-bold text-base disabled:opacity-50"
+                    >
+                      {submittingQuiz ? 'بيتبعت...' : 'سلّم الامتحان'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
