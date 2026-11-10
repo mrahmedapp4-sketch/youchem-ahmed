@@ -9,7 +9,7 @@ interface VideoWatermarkProps {
 // Distributed positions across video frame to prevent cropping while avoiding UI controls
 const POSITIONS = [
   { top: '10%', left: '8%', right: 'auto', bottom: 'auto' },
-  { top: '12%', right: '10%', left: 'auto', bottom: 'auto' },
+  { top: '16%', right: '22%', left: 'auto', bottom: 'auto' },
   { bottom: '16%', left: '10%', top: 'auto', right: 'auto' },
   { bottom: '18%', right: '12%', top: 'auto', left: 'auto' },
   { top: '44%', left: '36%', right: 'auto', bottom: 'auto' },

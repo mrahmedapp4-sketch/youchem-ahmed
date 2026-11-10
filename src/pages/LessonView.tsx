@@ -10,7 +10,11 @@ import {
   X,
   Maximize,
   Minimize,
-  ShieldAlert,
+  FileQuestion,
+  FileText,
+  CheckCircle2,
+  BookOpen,
+  ChevronDown,
 } from 'lucide-react';
 import { BunnyVideo } from '../components/BunnyVideo';
 import { VideoWatermark } from '../components/VideoWatermark';
@@ -43,20 +47,11 @@ export function LessonView() {
   // When true, student dismissed the quiz with X — video stays accessible (unless locked)
   const [quizDismissed, setQuizDismissed] = useState(false);
 
-  // Fullscreen notice dismissal persistence (stored in localStorage so it never shows again if dismissed)
-  const [showFsNotice, setShowFsNotice] = useState(() => {
-    try {
-      return localStorage.getItem('hide_fullscreen_notice') !== 'true';
-    } catch {
-      return true;
-    }
-  });
-
-  const handleDismissFsNotice = () => {
-    setShowFsNotice(false);
-    try {
-      localStorage.setItem('hide_fullscreen_notice', 'true');
-    } catch {}
+  const handleOpenQuiz = () => {
+    setQuizDismissed(false);
+    setTimeout(() => {
+      document.getElementById('quiz-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   /* ── Keyboard navigation for Quiz ── */
@@ -358,7 +353,7 @@ export function LessonView() {
 
       {/* ── Navbar ── */}
       <header className="neon-panel border-b border-slate-200/80 dark:border-white/10 sticky top-0 z-20 backdrop-blur-2xl">
-        <div className={`mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 transition-all ${showFsNotice ? 'max-w-7xl' : 'max-w-5xl'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
           <button
             onClick={() => startPageTransition(() => navigate('/student-dashboard'))}
             className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-sky-600 dark:hover:text-sky-400 bg-white/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-all border border-slate-200/80 dark:border-white/10 shrink-0"
@@ -373,60 +368,143 @@ export function LessonView() {
         </div>
       </header>
 
-      <main className={`mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-6 transition-all ${showFsNotice ? 'max-w-7xl' : 'max-w-5xl'}`}>
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-6">
 
-        {/* ── Video Player & Security Notice Layout ── */}
-        <div className={showFsNotice ? 'grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 sm:gap-6 items-start' : 'w-full'}>
+        {/* ── Video Player & Exam Companion Card ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 sm:gap-6 items-start">
 
-          {/* Right Side Card (In RTL: Start side = Right, matches the red rectangle) */}
-          {showFsNotice && (
-            <div className="order-2 lg:order-1 space-y-4">
-              <div className="neon-card p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-amber-500/25 bg-amber-500/5 dark:bg-amber-950/20 shadow-xl space-y-4 relative">
-                <div className="flex items-center justify-between gap-2 border-b border-amber-500/10 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 shadow-sm">
-                      <ShieldAlert className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 inline-block">
-                        تنبيه أمني
+          {/* Right Side: Exam Card (In RTL: Start side = Right) */}
+          <div className="order-2 lg:order-1 space-y-4">
+            <div className="neon-card p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 shadow-xl space-y-4">
+              {/* Card Header */}
+              <div className="flex items-center gap-3 border-b border-slate-100 dark:border-white/10 pb-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50 shadow-sm">
+                  <FileQuestion className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60 inline-block">
+                      تقييم الحصة
+                    </span>
+                    {quizQuestions.length > 0 && !quizResult && (
+                      <span className="text-[11px] font-semibold text-slate-400">
+                        {quizQuestions.length} أسئلة
                       </span>
-                      <h3 className="font-bold text-slate-900 dark:text-white text-xs mt-0.5">
-                        تكبير الشاشة (Fullscreen)
-                      </h3>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm sm:text-base mt-0.5">
+                    امتحان الدرس
+                  </h3>
+                </div>
+              </div>
+
+              {/* Card Body by State */}
+              {!access ? (
+                <div className="space-y-3 py-1">
+                  <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
+                    <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>فعّل كود الحصة لفتح مشاهدة الفيديو والامتحان</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400">
+                    الامتحان متاح تلقائياً بمجرد إدخال الكود.
+                  </div>
+                </div>
+              ) : quizLoadState === 'loading' ? (
+                <div className="py-6 text-center space-y-2">
+                  <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin mx-auto" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">جاري تجهيز الامتحان...</p>
+                </div>
+              ) : quizLoadState === 'missing' ? (
+                <div className="space-y-2.5 py-2 text-center">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 flex items-center justify-center mx-auto">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+                    لا يوجد امتحان مضاف لهذه الحصة حالياً.
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    تابع مشاهدة الشرح واستمتع بالدرس.
+                  </p>
+                </div>
+              ) : quizResult ? (
+                <div className="space-y-3.5">
+                  <div className={`p-4 rounded-2xl border text-center ${
+                    quizResult.passed
+                      ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50/70 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                  }`}>
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      {quizResult.passed ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          تم الاجتياز بنجاح
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 dark:text-red-400">
+                          <XCircle className="w-4 h-4 text-red-500" />
+                          لم تجتز الامتحان
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-3xl font-extrabold ${quizResult.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      {quizResult.score} / {quizResult.total}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      ({Math.round((quizResult.score / quizResult.total) * 100)}%)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenQuiz}
+                      className="neon-btn w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      <span>مراجعة الإجابات والتصحيح</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRetakeQuiz}
+                      className="w-full py-2 px-4 rounded-xl text-xs font-bold bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>إعادة الامتحان</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span>اختبر فهمك لمحتوى الحصة</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span>تصحيح فوري ومراجعة لكل سؤال</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span>يمكنك حل الامتحان في أي وقت</span>
                     </div>
                   </div>
-                  {/* X Button: Dismiss and never show again */}
+
                   <button
                     type="button"
-                    onClick={handleDismissFsNotice}
-                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors shrink-0"
-                    title="إغلاق التنبيه وعدم إظهاره مرة أخرى"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-950 dark:text-amber-100 text-xs sm:text-sm font-bold leading-relaxed">
-                  ملاحظه زرار ال fullscreen الاصلي مش شغال لاسباب امنيه
-                </div>
-
-                {isVideoUnlocked && (
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
+                    onClick={handleOpenQuiz}
                     className="neon-btn w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
                   >
-                    <Maximize className="w-4 h-4" />
-                    <span>{isFullscreen ? 'الخروج من ملء الشاشة' : 'تكبير الشاشة الآن (F)'}</span>
+                    <FileText className="w-4 h-4" />
+                    <span>افتح الامتحان الآن</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Video Player (In RTL: End side = Left) */}
-          <div className={showFsNotice ? 'order-1 lg:order-2' : 'w-full'}>
+          {/* Left Side: Video Player (In RTL: End side = Left) */}
+          <div className="order-1 lg:order-2">
             <div
               ref={videoContainerRef}
               className="lesson-video-wrapper rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl relative select-none bg-black border border-slate-800 transition-all"
@@ -494,12 +572,12 @@ export function LessonView() {
               </div>
             )}
 
-            {/* Custom Fullscreen Control Button */}
+            {/* Custom Fullscreen Control Button - Top Right */}
             {isVideoUnlocked && (
               <button
                 type="button"
                 onClick={toggleFullscreen}
-                className="absolute bottom-3 left-3 z-40 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xl border border-white/20 active:scale-95"
+                className="absolute top-3 right-3 z-40 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xl border border-white/20 active:scale-95 backdrop-blur-sm"
                 title={isFullscreen ? 'الخروج من الشاشة الكاملة (F)' : 'ملء الشاشة (F)'}
               >
                 {isFullscreen ? (
@@ -546,7 +624,7 @@ export function LessonView() {
 
         {/* ── Quiz Section ── */}
         {showQuizSection && (
-          <div className="neon-card p-4 sm:p-6 md:p-8 rounded-2xl">
+          <div id="quiz-section" className="neon-card p-4 sm:p-6 md:p-8 rounded-2xl scroll-mt-20">
             <div className="mb-5 pb-4 sm:mb-6 sm:pb-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">امتحان الدرس</h2>
