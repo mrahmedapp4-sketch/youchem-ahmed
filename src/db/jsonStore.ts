@@ -7,6 +7,12 @@ import path from 'path';
 // read/write goes through an in-memory cache that is persisted synchronously
 // so we never serve stale data across requests.
 
+export interface DbDeviceSession {
+  deviceId: string;
+  sessionToken: string;
+  sessionExpiresAt: string;
+}
+
 export interface DbUser {
   id: string;
   googleId?: string;
@@ -28,6 +34,12 @@ export interface DbUser {
   /** ISO timestamp when the current session expires (mirrors JWT expiry).
    *  A session past this date is treated as expired and allows a new login. */
   sessionExpiresAt?: string | null;
+  /** Maximum number of simultaneous devices allowed for this student (default: 1). */
+  maxDevices?: number;
+  /** Active per-device sessions supporting 1..N allowed devices. */
+  deviceSessions?: DbDeviceSession[];
+  /** All device IDs ever associated with this student (for block/unblock cleanup). */
+  knownDeviceIds?: string[];
 }
 
 export interface DbLesson {

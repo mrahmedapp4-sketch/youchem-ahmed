@@ -38,6 +38,7 @@ import {
   jsonDb,
   newId,
   DbUser,
+  DbDeviceSession,
   DbSettings,
   DbLesson,
   DbQuiz,
@@ -146,6 +147,88 @@ app.get('/report-signature.png', (_req, res) => {
   res.type('png').set('Cache-Control', 'public, max-age=3600').sendFile(_signPath);
 });
 
+const MAX_STUDENT_DEVICES_LIMIT = 50;
+
+const getMaxDevices = (user?: Pick<DbUser, 'maxDevices'> | null): number => {
+  const n = Number(user?.maxDevices);
+  return Number.isInteger(n) && n >= 1 ? Math.min(n, MAX_STUDENT_DEVICES_LIMIT) : 1;
+};
+
+const getUserDeviceSessions = (user?: DbUser | null): DbDeviceSession[] => {
+  if (!user) return [];
+  if (Array.isArray(user.deviceSessions)) {
+    return user.deviceSessions.filter(
+      (s) => s && typeof s.deviceId === 'string' && typeof s.sessionToken === 'string',
+    );
+  }
+  if (user.deviceId && user.activeSessionToken) {
+    return [
+      {
+        deviceId: user.deviceId,
+        sessionToken: user.activeSessionToken,
+        sessionExpiresAt: user.sessionExpiresAt || '',
+      },
+    ];
+  }
+  return [];
+};
+
+const getLiveDeviceSessions = (user?: DbUser | null, now = new Date()): DbDeviceSession[] => {
+  return getUserDeviceSessions(user).filter(
+    (s) => Boolean(s.sessionToken) && Boolean(s.sessionExpiresAt) && new Date(s.sessionExpiresAt) > now,
+  );
+};
+
+const getUserKnownDeviceIds = (user?: DbUser | null): string[] => {
+  if (!user) return [];
+  const ids = new Set<string>();
+  if (user.deviceId) ids.add(user.deviceId);
+  for (const id of user.knownDeviceIds || []) {
+    if (id) ids.add(id);
+  }
+  for (const s of getUserDeviceSessions(user)) {
+    if (s.deviceId) ids.add(s.deviceId);
+  }
+  return Array.from(ids);
+};
+
+const verifyStudentSession = (
+  user: DbUser | undefined,
+  decoded: any,
+  settings: DbSettings | undefined,
+): { valid: true } | { valid: false; status: number; error: string } => {
+  if (!user) return { valid: false, status: 401, error: 'Unauthorized' };
+  if (user.blocked) {
+    return { valid: false, status: 403, error: 'تم حظر هذا الحساب من الدخول إلى المنصة.' };
+  }
+  if (decoded?.deviceId && settings?.blockedDeviceIds?.includes(decoded.deviceId)) {
+    return { valid: false, status: 403, error: 'تم حظر هذا الجهاز من الدخول إلى المنصة.' };
+  }
+
+  const sessions = getUserDeviceSessions(user);
+  if (sessions.length === 0) {
+    return { valid: false, status: 401, error: 'SESSION_CONFLICT' };
+  }
+
+  const matchingToken = sessions.find(
+    (s) => s.sessionToken && decoded?.sessionToken === s.sessionToken,
+  );
+  if (matchingToken) {
+    if (matchingToken.deviceId && decoded?.deviceId !== matchingToken.deviceId) {
+      return { valid: false, status: 401, error: 'DEVICE_MISMATCH' };
+    }
+    return { valid: true };
+  }
+
+  const hasKnownDeviceMatch = Boolean(
+    decoded?.deviceId && sessions.some((s) => s.deviceId === decoded.deviceId),
+  );
+  if (!hasKnownDeviceMatch && sessions.some((s) => Boolean(s.deviceId))) {
+    return { valid: false, status: 401, error: 'DEVICE_MISMATCH' };
+  }
+  return { valid: false, status: 401, error: 'SESSION_CONFLICT' };
+};
+
 // Homework PDFs require authentication — no unauthenticated static serving.
 // Both students and teachers can fetch them; the route checks either cookie.
 app.get('/uploads/homeworks/:filename', (req, res, next) => {
@@ -158,13 +241,8 @@ app.get('/uploads/homeworks/:filename', (req, res, next) => {
       const decoded = jwt.verify(studentToken, JWT_SECRET) as any;
       if (decoded.role === 'student') {
         const user = jsonDb.find('users', (u: DbUser) => u.id === decoded.studentId);
-        if (
-          user &&
-          !user.blocked &&
-          user.activeSessionToken &&
-          decoded.sessionToken === user.activeSessionToken &&
-          (!user.deviceId || decoded.deviceId === user.deviceId)
-        ) {
+        const settings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
+        if (verifyStudentSession(user, decoded, settings).valid) {
           authorized = true;
         }
       }
@@ -228,13 +306,8 @@ app.get('/uploads/files/:filename', (req, res) => {
       const decoded = jwt.verify(studentToken, JWT_SECRET) as any;
       if (decoded.role === 'student') {
         const user = jsonDb.find('users', (u: DbUser) => u.id === decoded.studentId);
-        const validSession =
-          user &&
-          !user.blocked &&
-          user.activeSessionToken &&
-          decoded.sessionToken === user.activeSessionToken &&
-          (!user.deviceId || decoded.deviceId === user.deviceId);
-        if (validSession) {
+        const settings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
+        if (user && verifyStudentSession(user, decoded, settings).valid) {
           // Enforce grade-level access: 'all' files are visible to everyone;
           // grade-specific files are only served to students of that grade.
           const gradeMatch =
@@ -345,31 +418,11 @@ const authenticateStudent = (req: express.Request, res: express.Response, next: 
     }
 
     const user = jsonDb.find('users', (u: DbUser) => u.id === decoded.studentId);
-    if (!user) {
-      res.clearCookie('student_token', COOKIE_OPTS);
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    if (user.blocked) {
-      res.clearCookie('student_token', COOKIE_OPTS);
-      return res.status(403).json({ error: 'تم حظر هذا الحساب من الدخول إلى المنصة.' });
-    }
     const settings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
-    if (decoded.deviceId && settings?.blockedDeviceIds?.includes(decoded.deviceId)) {
+    const sessionCheck = verifyStudentSession(user, decoded, settings);
+    if ('status' in sessionCheck) {
       res.clearCookie('student_token', COOKIE_OPTS);
-      return res.status(403).json({ error: 'تم حظر هذا الجهاز من الدخول إلى المنصة.' });
-    }
-    if (user.deviceId && decoded.deviceId !== user.deviceId) {
-      res.clearCookie('student_token', COOKIE_OPTS);
-      return res.status(401).json({ error: 'DEVICE_MISMATCH' });
-    }
-    // ── Single-device enforcement ──────────────────────────────────────────
-    // The JWT must carry a sessionToken that exactly matches what is stored
-    // in the DB. A missing activeSessionToken (after logout) or a mismatch
-    // (another device logged in) both result in immediate rejection so that
-    // stale cookies can never be reused after logout.
-    if (!user.activeSessionToken || decoded.sessionToken !== user.activeSessionToken) {
-      res.clearCookie('student_token', COOKIE_OPTS);
-      return res.status(401).json({ error: 'SESSION_CONFLICT' });
+      return res.status(sessionCheck.status).json({ error: sessionCheck.error });
     }
     (req as any).studentId = decoded.studentId;
     next();
@@ -1100,10 +1153,15 @@ app.get('/api/youchem/students', authenticateTeacher, async (req, res) => {
     const allStudents = jsonDb.filter('users', (u: DbUser) => u.role === 'student');
     const allAccesses = jsonDb.getAll('studentLessonAccess');
 
-    const studentsWithAccess = allStudents.map((s: DbUser) => ({
-      ...s,
-      accesses: allAccesses.filter((a: DbStudentLessonAccess) => a.userId === s.id),
-    }));
+    const studentsWithAccess = allStudents.map((s: DbUser) => {
+      const { activeSessionToken, sessionExpiresAt, deviceSessions, ...safeStudent } = s;
+      return {
+        ...safeStudent,
+        maxDevices: getMaxDevices(s),
+        activeDevicesCount: getLiveDeviceSessions(s).length,
+        accesses: allAccesses.filter((a: DbStudentLessonAccess) => a.userId === s.id),
+      };
+    });
 
     res.json(studentsWithAccess);
   } catch (err: any) {
@@ -1119,12 +1177,15 @@ app.patch('/api/youchem/students/:userId/block', authenticateTeacher, async (req
     const shouldBlock = !user.blocked;
     const settings = jsonDb.find('settings', (s: DbSettings) => s.id === 'main');
     const blockedDeviceIds = [...(settings?.blockedDeviceIds || [])];
+    const studentDeviceIds = getUserKnownDeviceIds(user);
 
-    if (shouldBlock && user.deviceId && !blockedDeviceIds.includes(user.deviceId)) {
-      blockedDeviceIds.push(user.deviceId);
+    if (shouldBlock && studentDeviceIds.length > 0) {
+      for (const id of studentDeviceIds) {
+        if (!blockedDeviceIds.includes(id)) blockedDeviceIds.push(id);
+      }
     }
-    if (!shouldBlock && user.deviceId) {
-      const remainingDeviceIds = blockedDeviceIds.filter((deviceId) => deviceId !== user.deviceId);
+    if (!shouldBlock && studentDeviceIds.length > 0) {
+      const remainingDeviceIds = blockedDeviceIds.filter((deviceId) => !studentDeviceIds.includes(deviceId));
       if (settings) {
         jsonDb.update('settings', (s: DbSettings) => s.id === 'main', { blockedDeviceIds: remainingDeviceIds });
       }
@@ -1138,7 +1199,14 @@ app.patch('/api/youchem/students/:userId/block', authenticateTeacher, async (req
 
     const updated = jsonDb.update('users', (u: DbUser) => u.id === userId, {
       blocked: shouldBlock,
-      ...(shouldBlock ? { activeSessionToken: null, sessionExpiresAt: null } : {}),
+      ...(shouldBlock
+        ? {
+            knownDeviceIds: studentDeviceIds,
+            activeSessionToken: null,
+            sessionExpiresAt: null,
+            deviceSessions: [],
+          }
+        : {}),
     });
     res.json(updated);
   } catch (err: any) {
@@ -1174,8 +1242,44 @@ app.patch('/api/youchem/students/:userId/unlink-device', authenticateTeacher, as
       deviceId: null,
       activeSessionToken: null,
       sessionExpiresAt: null,
+      deviceSessions: [],
+      knownDeviceIds: [],
     });
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/youchem/students/:userId/max-devices', authenticateTeacher, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = jsonDb.find('users', (u: DbUser) => u.id === userId && u.role === 'student');
+    if (!user) return res.status(404).json({ error: 'الطالب غير موجود' });
+
+    const rawMax = Number(req.body?.maxDevices);
+    if (!Number.isInteger(rawMax) || rawMax < 1 || rawMax > MAX_STUDENT_DEVICES_LIMIT) {
+      return res.status(400).json({ error: `عدد الأجهزة لازم يكون رقم صحيح من 1 إلى ${MAX_STUDENT_DEVICES_LIMIT}` });
+    }
+
+    const liveSessions = getLiveDeviceSessions(user);
+    const updates: Partial<DbUser> = { maxDevices: rawMax };
+
+    if (liveSessions.length > rawMax) {
+      const keptSessions = liveSessions.slice(-rawMax);
+      const latest = keptSessions[keptSessions.length - 1];
+      updates.deviceSessions = keptSessions;
+      updates.deviceId = latest?.deviceId ?? null;
+      updates.activeSessionToken = latest?.sessionToken ?? null;
+      updates.sessionExpiresAt = latest?.sessionExpiresAt ?? null;
+    }
+
+    const updated = jsonDb.update('users', (u: DbUser) => u.id === userId, updates);
+    res.json({
+      ...updated,
+      maxDevices: getMaxDevices(updated),
+      activeDevicesCount: getLiveDeviceSessions(updated).length,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1336,15 +1440,14 @@ app.post('/api/student/google-login', async (req, res) => {
       return res.status(403).json({ error: 'تم حظر هذا الحساب من الدخول إلى المنصة.' });
     }
 
-    // ── Single-device enforcement ─────────────────────────────────────────
-    // Block a new login if the user already has a live (non-expired) session.
-    // An expired session (past sessionExpiresAt) is treated as cleared so the
-    // student can log in again without needing to manually log out first.
-    const sessionIsLive =
-      user?.activeSessionToken &&
-      user.sessionExpiresAt &&
-      new Date(user.sessionExpiresAt) > new Date();
-    if (sessionIsLive && user?.deviceId !== deviceId) {
+    // ── Per-student device limit enforcement ──────────────────────────────
+    // Block a new device if the student already reached their allowed maxDevices
+    // among live (non-expired) sessions. Re-logging in from an already-active
+    // device refreshes its session in place without consuming another slot.
+    const maxDevices = getMaxDevices(user);
+    const liveSessions = user ? getLiveDeviceSessions(user) : [];
+    const existingDeviceIndex = liveSessions.findIndex((s) => s.deviceId === deviceId);
+    if (user && existingDeviceIndex === -1 && liveSessions.length >= maxDevices) {
       return res.status(403).json({ error: 'DEVICE_LOCKED' });
     }
 
@@ -1371,8 +1474,22 @@ app.post('/api/student/google-login', async (req, res) => {
         picture,
       });
     } else {
-      // Backfill googleId / update picture / set session token.
-      const updates: Partial<DbUser> = { activeSessionToken: sessionToken, sessionExpiresAt, deviceId };
+      // Backfill googleId / update picture / set session token for this device.
+      const nextSessions = [...liveSessions];
+      const nextSession: DbDeviceSession = { deviceId, sessionToken, sessionExpiresAt };
+      if (existingDeviceIndex >= 0) {
+        nextSessions[existingDeviceIndex] = nextSession;
+      } else {
+        nextSessions.push(nextSession);
+      }
+      const knownDeviceIds = Array.from(new Set([...getUserKnownDeviceIds(user), deviceId]));
+      const updates: Partial<DbUser> = {
+        activeSessionToken: sessionToken,
+        sessionExpiresAt,
+        deviceId,
+        deviceSessions: nextSessions,
+        knownDeviceIds,
+      };
       if (!user.googleId) updates.googleId = googleId;
       if (picture) updates.picture = picture;
       user = jsonDb.update('users', (u: DbUser) => u.id === user!.id, updates);
@@ -1496,6 +1613,9 @@ app.post('/api/student/complete-profile', authenticateStudent, async (req, res) 
         deviceId,
         activeSessionToken: sessionToken,
         sessionExpiresAt,
+        maxDevices: 1,
+        deviceSessions: deviceId ? [{ deviceId, sessionToken, sessionExpiresAt }] : [],
+        knownDeviceIds: deviceId ? [deviceId] : [],
         blocked: false,
       } as DbUser;
       jsonDb.insert('users', newUser);
