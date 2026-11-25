@@ -321,25 +321,33 @@ tbody tr:hover, tbody tr.hover\:bg-slate-50:hover {
 .dark .text-slate-400 { color: #636366 !important; }
 
 /* Status Accents: Indigo / Sky */
-.dark .bg-indigo-50 { background-color: rgba(41, 151, 255, 0.15) !important; }
-.dark .border-indigo-100 { border-color: rgba(41, 151, 255, 0.28) !important; }
-.dark .text-indigo-700 { color: #64d2ff !important; }
-.dark .text-indigo-600 { color: #2997ff !important; }
+.dark .bg-indigo-50, .dark .bg-sky-50 { background-color: rgba(41, 151, 255, 0.15) !important; }
+.dark .hover\:bg-indigo-100:hover, .dark .hover\:bg-sky-100:hover { background-color: rgba(41, 151, 255, 0.24) !important; }
+.dark .border-indigo-100, .dark .border-indigo-200, .dark .border-sky-100, .dark .border-sky-200 { border-color: rgba(41, 151, 255, 0.28) !important; }
+.dark .text-indigo-700, .dark .text-sky-700 { color: #64d2ff !important; }
+.dark .text-indigo-600, .dark .text-sky-600 { color: #2997ff !important; }
 
 /* Status Accents: Emerald / Success */
 .dark .bg-emerald-50 { background-color: rgba(48, 209, 88, 0.14) !important; }
-.dark .border-emerald-200 { border-color: rgba(48, 209, 88, 0.28) !important; }
+.dark .hover\:bg-emerald-100:hover { background-color: rgba(48, 209, 88, 0.24) !important; }
+.dark .border-emerald-100, .dark .border-emerald-200 { border-color: rgba(48, 209, 88, 0.28) !important; }
 .dark .text-emerald-700, .dark .text-emerald-600 { color: #30d158 !important; }
 
 /* Status Accents: Red / Danger */
 .dark .bg-red-50 { background-color: rgba(255, 69, 58, 0.14) !important; }
-.dark .border-red-200 { border-color: rgba(255, 69, 58, 0.28) !important; }
+.dark .hover\:bg-red-100:hover { background-color: rgba(255, 69, 58, 0.24) !important; }
+.dark .border-red-100, .dark .border-red-200 { border-color: rgba(255, 69, 58, 0.28) !important; }
 .dark .text-red-700, .dark .text-red-600 { color: #ff453a !important; }
 
 /* Status Accents: Amber / Warning */
 .dark .bg-amber-50 { background-color: rgba(255, 159, 10, 0.14) !important; }
-.dark .border-amber-200 { border-color: rgba(255, 159, 10, 0.28) !important; }
+.dark .hover\:bg-amber-100:hover { background-color: rgba(255, 159, 10, 0.24) !important; }
+.dark .border-amber-100, .dark .border-amber-200 { border-color: rgba(255, 159, 10, 0.28) !important; }
 .dark .text-amber-700, .dark .text-amber-600 { color: #ff9f0a !important; }
+
+/* Slate hover in Dark Mode */
+.dark .hover\:bg-slate-100:hover { background-color: rgba(58, 58, 68, 0.65) !important; }
+.dark .hover\:bg-slate-200:hover { background-color: rgba(72, 72, 82, 0.72) !important; }
 
 /* ── Instant & Butter-Smooth Animations ── */
 @keyframes dashboardSectionEnter {

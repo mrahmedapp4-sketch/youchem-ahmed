@@ -249,9 +249,7 @@ export function Students() {
                             className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-semibold text-xs transition-colors border ${
                               maxDevices > 1
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                                : isBound
-                                  ? 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
-                                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                             }`}
                           >
                             <MonitorSmartphone className="w-3.5 h-3.5" />

@@ -161,10 +161,10 @@ const getUserDeviceSessions = (user?: DbUser | null): DbDeviceSession[] => {
       (s) => s && typeof s.deviceId === 'string' && typeof s.sessionToken === 'string',
     );
   }
-  if (user.deviceId && user.activeSessionToken) {
+  if (user.activeSessionToken) {
     return [
       {
-        deviceId: user.deviceId,
+        deviceId: user.deviceId || '',
         sessionToken: user.activeSessionToken,
         sessionExpiresAt: user.sessionExpiresAt || '',
       },
